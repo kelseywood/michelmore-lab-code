@@ -1,0 +1,69 @@
+#open DP File
+open(INPUT, $ARGV[0]) || die "Cannot open file \"$ARGV[0]\""; # Can't open fasta file to convert
+
+$file = $ARGV[0];
+
+chop($file);
+chop($file);
+chop($file);
+
+my $prevHeaderLine = ();
+my @prevQuality = ();
+
+open(RESULTS, ">$file.fastq") || die "Cannot open file results file";
+
+$line = <INPUT>;
+chop ($line);
+print RESULTS $line, "\n";
+
+$prevHeaderLine = substr($line,1,100);
+
+$line = <INPUT>;
+chop ($line);
+print RESULTS $line, "\n";
+
+$length = length($line);
+
+for($i=0; $i < $length; ++$i) {
+	push (@prevQuality, "b");
+} #end for
+
+while ($line = <INPUT>) {
+
+	chop ($line);
+
+	@data = split("", $line);
+
+	if($data[0] eq ">") {
+
+		print RESULTS "@", $prevHeaderLine, "\n";
+		print RESULTS @prevQuality, "\n";
+		print RESULTS $line, "\n";
+
+		$prevHeaderLine = substr($line,1,100);
+
+	} elsif ($data[0] ne "") {
+
+		print RESULTS $line, "\n";
+
+		$length = length($line);
+
+		@prevQuality = "";
+
+		for($i=0; $i < $length; ++$i) {
+			push (@prevQuality, "b");
+		} #end for
+
+	} #end ifelse
+
+} #end while
+
+print RESULTS "@", $prevHeaderLine, "\n";
+print RESULTS @prevQuality, "\n";
+print RESULTS $line, "\n";
+
+
+close(INPUT);
+close(RESULTS);
+
+exit;

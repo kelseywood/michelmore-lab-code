@@ -1,0 +1,23 @@
+#!/bin/bash
+
+#$ -S /bin/bash
+#$ -o /share/jumbo-0-1-scratch-2/lutz/A_genome/maker/0-0.stdout
+#$ -e /share/jumbo-0-1-scratch-2/lutz/A_genome/maker/0-0.stderr
+#$ -N makerjob-0-0
+#$ -pe threaded 8
+
+export HOME=/home/ikorf
+export BIO=$HOME/bio
+export BLASTDB=$BIO/db/BLAST
+export BLASTMAT=$HOME/BLAST/matrix
+export BLASTFILTER=$HOME/BLAST/filter
+export PERL5LIB=/share/perl/lib/perl5/x86_64-linux-thread-multi:/share/perl/lib/perl5:/$HOME/lib
+export PATH=.:$HOME/bin:$HOME/BLAST:/share/perl/bin:${PATH}:/opt/rocks/bin
+export ZOE=/share/apps/snap-2010-07-28/Zoe/
+export PATH="/share/apps/snap-2010-07-28/bin/:${PATH}"
+export PATH="/share/apps/repeatmasker-3.3.0/:${PATH}"
+export PATH="/share/apps/exonerate-2.2.0/bin/:${PATH}"
+
+cd /share/jumbo-0-1-scratch-2/lutz/A_genome/maker
+hostname
+/home/ikorf/maker/bin/maker/maker/bin/maker -g /share/jumbo-0-1-scratch-2/lutz/A_genome/assemblies/splits/genome_0_0.fa

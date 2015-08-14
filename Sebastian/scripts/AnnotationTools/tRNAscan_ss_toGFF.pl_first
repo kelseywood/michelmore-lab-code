@@ -1,0 +1,49 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+if(!defined($ARGV[1])) {
+	print "Please provide an tRNAscan .ss and .out file\n";
+	die "Missing arguments\n";
+} #end if not defined argument
+
+## Script design to convert an tRNAscan ss and out files into a gff file
+
+my $ssFile = $ARGV[0];
+my $outFile = $ARGV[1];
+my $base = $ARGV[0];
+$base =~ s{\.[^.]+$}{};
+
+my %SeqStr;
+
+open(SS, $ssFile);
+open(OUTPUT, ">$base.gff");
+
+while(my $header = <SS>) {
+
+	if ($header eq "") { next }
+
+	my $sequence;
+	my $structure;
+
+	while($seq = <SS>) {
+		if ($seq =~ /Seq;/) {
+			my @seqInfo = split(" ", $seq);
+			$sequence = $seqInfo[1];
+			last;
+		} #end if is seq
+	} #end lokoing for $seq
+
+	while($str = <SS>) {
+		if ($seq =~ /Str;/) {
+			my @strInfo = split(" ", $str);
+			$structure = $strInfo[1];
+			last;
+		} #end if is seq
+	} #end lokoing for $seq
+
+	my @headerInfo = split(" ", $header);
+
+	$SeqStr{$headerInfo[0]} = "Sequence=".$sequence.";Structure=".$structure.";";
+
+} #end reading ss file

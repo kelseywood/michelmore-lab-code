@@ -1,0 +1,13 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+## Script design to find families of orthologs from a blast out put (specifically an info2 file from Alex Kozik tcl_blast_parser)
+
+if(@ARGV < 4) {
+
+	print "Usage: Lida_Families_Finder.pl <info2 file> <Identity Threeshold> <Size Ratio Threshold> <Percent Alignment Threeshold> <Output Prefix>\n";
+	die "Missing arguments\n";
+
+} #end if arguments missing
+

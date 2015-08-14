@@ -1,0 +1,2 @@
+awk '{ printf ">"; print }' file>file.fa
+cat file.fa | tr '\t' '\n' >tmp ; mv tmp file.fa 

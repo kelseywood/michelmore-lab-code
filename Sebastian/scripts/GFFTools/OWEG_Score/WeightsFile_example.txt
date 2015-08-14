@@ -1,0 +1,26 @@
+# First line is matching type
+# Remaining lines represent each source type and the weight for each of the matching type
+Categories	matched_exons	partial_match	contradictory_exons	unsupported_exons	micro_exons	not_aligned_exons
+AUGUSTUS	0.5	0.5	0.5	0	-1	0
+GlimmerHMM	0.5	0.5	0.5	0	-1	0
+snap_masked	0.5	0.5	0.5	0	-1	0
+Cuff_V4	1	1	0.5	0	-1	0
+Cuff_V3	1	1	0.5	0	-1	0
+GLEAN_V3	1	1	0.5	0	-1	0
+GLEAN_V4	1	1	0.5	0	-1	0
+maker	1	1	0.5	0	-1	0
+est2genome	2	1	0.5	0	-1	0
+ESTs	2	1	0.5	0	-1	0
+PacBio	2	1	0.5	0	-1	0
+GeneWise_At	1	1	0.5	0	-1	0
+GeneWise_Gm	1	1	0.5	0	-1	0
+GeneWise_St	1	1	0.5	0	-1	0
+GeneWise_Tc	1	1	0.5	0	-1	0
+GeneWise_Vv	1	1	0.5	0	-1	0
+protein2genome	1	1	0.5	0	-1	0
+RepeatMasker_V3	-10	0	0	0	0	0
+RepeatMasker_v4	-10	0	0	0	0	0
+RepeatProteinMask_V3	-10	0	0	0	0	0
+RepeatProteinMask_v4	-10	0	0	0	0	0
+TRF_V3	-2	0	0	0	0	0
+TRF_v4	-2	0	0	0	0	0

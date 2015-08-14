@@ -1,0 +1,27 @@
+open(FASTAINPUT, $ARGV[0]);
+open(OUTPUT, ">$ARGV[0]_smallerthan_$ARGV[1].txt");
+
+while($line = <FASTAINPUT>) {
+
+	chomp($line);
+
+        $sequenceName = substr($line,1,200);
+
+        $sequence = <FASTAINPUT>;
+
+        chomp($sequence);
+
+        if(length($sequence) <= $ARGV[1]) {
+
+	        print OUTPUT ">", $sequenceName, "\n";
+	        print OUTPUT $sequence, "\n";
+
+	} #end if
+
+} #end while
+
+close(FASTAINPUT);
+close(OUTPUT);
+
+exit;
+

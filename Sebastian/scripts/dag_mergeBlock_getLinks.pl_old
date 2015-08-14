@@ -1,0 +1,82 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use POSIX;
+
+if (!defined($ARGV[0])) {
+
+	print "One argument is needed, please input it.\n";
+	print "Dag merged synteny blocks file from SynMap\n";
+        exit 0;
+
+} #end if
+
+
+
+open(MATCHES, $ARGV[0]);
+
+my $inputFile = $ARGV[0];
+$inputFile =~ s/\.[^.]+$//;
+
+open(BLOCKS, ">$inputFile.links.txt");
+
+print BLOCKS join("\t", ("sequence1", "sequence2", "numMatches", "meanIdentity", "sumLengths") );
+print BLOCKS "\n";
+
+my @blocks;
+
+my $sequence1;
+my $sequence2;
+
+my $numMatches = 0;
+my $sumIdentities = 0;
+my $sumLengths = 0;
+
+my $firstLine = <MATCHES>;
+
+while (my $line = <MATCHES>) {
+
+	chomp($line);
+
+	if ($line =~ /^###/) {
+
+		my $meanIdentity = $sumIdentities/$numMatches;
+
+		print BLOCKS join("\t", ($sequence1, $sequence2, $numMatches, sprintf("%.2f", $meanIdentity), $sumLengths) );
+		print BLOCKS "\n";
+		
+		$numMatches = 0;
+		$sumIdentities = 0;
+		$sumLengths = 0;
+
+	} else {
+
+		my @syntenicHit = split("\t", $line);
+
+
+		$sequence1 = $syntenicHit[0];
+		$sequence2 = $syntenicHit[4];
+
+		$sequence1 =~ s/^[a-z][0-9]+_//;
+		$sequence2 =~ s/^[a-z][0-9]+_//;
+
+		$sumLengths += abs($syntenicHit[2] - $syntenicHit[3]);
+
+		my @geneInfo = split("\\|\\|", $syntenicHit[1]);
+
+		$sumIdentities += $geneInfo[8];
+
+		++$numMatches;
+
+	} #end 
+
+} #end while
+
+my $meanIdentity = $sumIdentities/$numMatches;
+print BLOCKS join("\t", ($sequence1, $sequence2, $numMatches, $meanIdentity, $sumLengths) );
+print BLOCKS "\n";
+
+close(MATCHES);
+close(BLOCKS);
+
+exit;

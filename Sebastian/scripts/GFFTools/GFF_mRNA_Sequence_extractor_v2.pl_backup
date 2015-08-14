@@ -1,0 +1,311 @@
+#!/usr/bin/perl
+use lib "/opt/rocks/lib/perl5/site_perl/5.10.1/";
+use strict;
+use Getopt::Long;
+use Bio::Seq;
+use Bio::Index::Fasta;
+use Bio::Tools::CodonTable;
+
+my $CodonTable = Bio::Tools::CodonTable->new();
+
+###################################################
+#
+#
+#	GFF3 Genomic Sequence Extractor
+#
+#
+#
+###################################################
+
+#####################################
+#
+# Diff from v1
+# add flaking reginos
+#
+
+if (@ARGV < 2) {
+
+	print "Two are arguments are needed, please input them.\n";
+        print "Fasta reference file where to take the sequence from.\n";
+	print "GFF File were to take position information.\n";
+	print "perl GFF_mRNA_GenomicSequence_Extractor.pl <FastaFile> <GFFFile> <flanking region>\n";
+        exit 0;
+
+} #end if
+
+#if(!(-f "$ARGV[0].idx") ) {
+
+	my $idx = Bio::Index::Fasta->new(
+		                         '-filename' => "$ARGV[0].idx",
+		                         '-write_flag' => 1
+		                        );
+
+#} #end if index not present
+
+$idx->make_index("$ARGV[0]");
+
+my %mRNAs;
+
+my $flank = $ARGV[2];
+
+open(GFF, $ARGV[1]);
+
+while (my $line = <GFF>) {
+
+	if ($line =~ "^#") {next}
+
+	chop($line);
+
+        my @GFF_line = split ("\t", $line);
+
+	my @features = split (";", $GFF_line[8]);
+
+	foreach my $feature (@features) {
+
+		my @value = split("=", $feature);
+
+	        if ( ($value[0] eq "ID") && ($GFF_line[2] eq "mRNA") ) { $mRNAs{$value[1]}{'data'} = [$GFF_line[0],$GFF_line[1],$GFF_line[6],$GFF_line[8],$GFF_line[3],$GFF_line[4]] }
+
+	        elsif ( ($value[0] eq "Parent") && ($GFF_line[2] eq "UTR_5") ) { $mRNAs{$value[1]}{'UTR_5'}{$GFF_line[3]} = $GFF_line[4] }
+
+	        elsif ( ($value[0] eq "Parent") && ($GFF_line[2] eq "UTR_3") ) { $mRNAs{$value[1]}{'UTR_3'}{$GFF_line[3]} = $GFF_line[4] }
+
+	        elsif ( ($value[0] eq "Parent") && ($GFF_line[2] eq "CDS") ) { $mRNAs{$value[1]}{'CDS'}{$GFF_line[3]} = $GFF_line[4] }
+
+	        elsif ( ($value[0] eq "Parent") && ($GFF_line[2] eq "exon") ) { $mRNAs{$value[1]}{'exon'}{$GFF_line[3]} = $GFF_line[4] }
+
+	} #end foreach
+
+} #end while
+
+my $countmRNAs = scalar(keys %mRNAs);
+
+print "$countmRNAs mRNA's were loaded and will be use for sequence extraction\n\n";
+
+close(GFF);
+
+open(GENOMIC, ">$ARGV[1].genomic.fasta");
+open(TRANSCRIPT, ">$ARGV[1].transcript.fasta");
+open(CDS, ">$ARGV[1].CDS.fasta");
+open(PROTEIN, ">$ARGV[1].protein.fasta");
+open(ERRORS, ">$ARGV[1].errors.txt");
+
+my $analyzedmRNA = 0;
+
+foreach my $mRNA (sort {$a <=> $b} keys %mRNAs) {
+
+	if( ($analyzedmRNA/500) =~ m/^\d+$/) { print "Done with $analyzedmRNA mRNA's of $countmRNAs\n" } #end if integer
+
+	++$analyzedmRNA;
+
+	if(!defined(@{$mRNAs{$mRNA}{'data'}})) {print ERRORS "Empty dataset for $mRNA\n"; next}
+
+	# Get mRNA info and seq location
+	my @mRNA_info = @{$mRNAs{$mRNA}{'data'}};
+	delete $mRNAs{$mRNA}{'data'};
+	my $seq = $idx->fetch($mRNA_info[0]);
+
+        if(defined($seq)) {
+
+		# Start sequence storage arrays
+	        my @genomic;
+	        my @transcript;
+	        my @CDS;
+
+		my $prevEnd;
+		my $lastCDS;
+
+#		print ERRORS $mRNA, "\n";
+
+		# Get sorted start coordinates for CDS's and exons
+		my @CDSStarts = sort {$a<=>$b} keys %{$mRNAs{$mRNA}{'CDS'}} ;
+		my @ExonStarts = sort {$a<=>$b} keys %{$mRNAs{$mRNA}{'exon'}} ;
+
+		# Print left flank if required
+		if($flank > 0) {
+			my $leftflank = lc($seq->subseq($ExonStarts[0]-$flank, $ExonStarts[0]-1));
+			push(@genomic, $leftflank);
+			push(@genomic, "()");
+		} #end printing left flank
+
+		#Get spliced 5' UTR exons
+		while( ($mRNAs{$mRNA}{'exon'}{$ExonStarts[0]} < $mRNAs{$mRNA}{'CDS'}{$CDSStarts[0]}) && defined($ExonStarts[0]) ) {
+
+			my $UTRstart = shift(@ExonStarts);
+	                my $leftutrSeq = lc($seq->subseq($UTRstart, $mRNAs{$mRNA}{'exon'}{$UTRstart} ));
+	                push(@genomic, $leftutrSeq);
+	                push(@transcript, $leftutrSeq);
+
+		} #end while
+
+		# For monoexonic genes
+		if(scalar(@CDSStarts) == 1) {
+
+			my $exon = shift(@ExonStarts);
+
+			#Get 5' UTR piece attach to CDS
+			if($exon != $CDSStarts[0]) {
+
+				my $leftutrSeq = lc($seq->subseq($exon, ($CDSStarts[0] - 1) ));
+		                push(@genomic, $leftutrSeq);
+		                push(@transcript, $leftutrSeq);
+
+			} #end
+ 		
+			#Get CDS
+			my $CDSseq = uc($seq->subseq($CDSStarts[0], $mRNAs{$mRNA}{'CDS'}{$CDSStarts[0]}));
+			push(@genomic, $CDSseq);
+			push(@transcript, $CDSseq);
+			push(@CDS, $CDSseq);
+
+			$prevEnd = $mRNAs{$mRNA}{'CDS'}{$CDSStarts[0]};
+
+			#Get 3' UTR piece attach to last CDS
+			if( ($mRNAs{$mRNA}{'CDS'}{$CDSStarts[0]} != $mRNAs{$mRNA}{'exon'}{$exon}) ) {
+
+				my $rightutrSeq = lc($seq->subseq(($mRNAs{$mRNA}{'CDS'}{$CDSStarts[0]}+1), $mRNAs{$mRNA}{'exon'}{$exon} ));
+
+		                push(@genomic, $rightutrSeq);
+		                push(@transcript, $rightutrSeq);
+
+				$prevEnd = $mRNAs{$mRNA}{'exon'}{$exon};
+
+			} #end retriving UTR piece
+
+			$lastCDS = $CDSStarts[0];
+
+		# For non-monoexonic genes
+		} else {
+
+			#Get 5' UTR piece attach to first CDS
+			if($ExonStarts[0] < $CDSStarts[0]) {
+
+		                my $leftutrSeq = lc($seq->subseq($ExonStarts[0], ($CDSStarts[0] - 1) ));
+		                push(@genomic, $leftutrSeq);
+		                push(@transcript, $leftutrSeq);
+
+			} #end of printing 5' UTR
+
+			# Get first CDS
+			my $firstCDS = shift(@CDSStarts);
+			my $firstCDSSeq = uc($seq->subseq($firstCDS, $mRNAs{$mRNA}{'CDS'}{$firstCDS}));
+			push(@genomic, $firstCDSSeq);
+			push(@transcript, $firstCDSSeq);
+			push(@CDS, $firstCDSSeq);
+
+		        my $prevEnd = $mRNAs{$mRNA}{'CDS'}{$firstCDS};
+
+			# Get information out of CDS's
+		        foreach my $cds (@CDSStarts) {
+
+				my $intron = lc($seq->subseq(($prevEnd + 1), ($cds - 1)));
+		                push(@genomic, $intron);
+
+			        my $cdsSeq = uc($seq->subseq($cds, $mRNAs{$mRNA}{'CDS'}{$cds}));
+
+			        #Print exon
+			        push(@genomic, $cdsSeq);
+			        push(@transcript, $cdsSeq);
+			        push(@CDS, $cdsSeq);
+
+			        $prevEnd = $mRNAs{$mRNA}{'CDS'}{$cds};
+
+		        } #end print CDS
+
+			my $lastCDS = pop(@CDSStarts);
+
+			#Get 3' UTR piece attach to last CDS
+			if( defined($mRNAs{$mRNA}{'exon'}{$lastCDS}) && ($mRNAs{$mRNA}{'CDS'}{$lastCDS} != $mRNAs{$mRNA}{'exon'}{$lastCDS}) ) {
+
+				my $rightutrSeq = lc($seq->subseq(($mRNAs{$mRNA}{'CDS'}{$lastCDS}+1), $mRNAs{$mRNA}{'exon'}{$lastCDS} ));
+
+		                push(@genomic, $rightutrSeq);
+		                push(@transcript, $rightutrSeq);
+
+				$prevEnd = $mRNAs{$mRNA}{'exon'}{$lastCDS};
+
+			} #end retriving UTR piece
+
+		} #end else for monoexonic gene models
+
+
+		#Get spliced 3' UTR's
+		foreach my $exonStart (@ExonStarts) {
+
+			if($exonStart <= $lastCDS) { next }
+
+	                my $rightutrSeq = lc($seq->subseq($exonStart, $mRNAs{$mRNA}{'exon'}{$exonStart} ));
+
+	                push(@genomic, $rightutrSeq);
+	                push(@transcript, $rightutrSeq);
+
+			$prevEnd = $mRNAs{$mRNA}{'exon'}{$exonStart};
+
+		} # retrieving exons
+
+		# Print left flank if required
+		if($flank > 0) {
+
+			my $rightflank = lc($seq->subseq($prevEnd+1, $prevEnd+$flank));
+			push(@genomic, "()");
+			push(@genomic, $rightflank);
+
+		} #end printing left flank
+
+		# Print sequences into respective files
+		my $genomicSequence;
+		my $transcriptSequence;
+		my $codingSequence;
+		my $proteinSequence;
+
+                ###  sequence is on plus ###
+	        if ($mRNA_info[2] eq "+") {
+
+			$genomicSequence = join("",@genomic);
+			$transcriptSequence = join("",@transcript);
+			$codingSequence = join("", @CDS);
+			$proteinSequence = $CodonTable->translate($codingSequence);
+
+                ###  sequence is on minus ###
+	        } else {
+
+			$genomicSequence = reverse(join("",@genomic));
+			$genomicSequence =~ tr/ACGTacgt()/TGCAtgca)(/;
+
+			$transcriptSequence = reverse(join("",@transcript));
+			$transcriptSequence =~ tr/ACGTacgt/TGCAtgca/;
+
+			$codingSequence = reverse(join("", @CDS));
+			$codingSequence =~ tr/ACGTacgt/TGCAtgca/;
+
+			$proteinSequence = $CodonTable->translate($codingSequence);
+
+	        } #end print plus and minus strands
+
+#		# Print sequences into respective files
+#		my $genomicSequence = join("",@genomic);
+#		my $transcriptSequence = join("",@transcript);
+#		my $codingSequence = join("", @CDS);
+#		my $proteinSequence = $CodonTable->translate($codingSequence);
+
+	        print GENOMIC ">$mRNA genomic ".length($genomicSequence)."bp $mRNA_info[0]:$mRNA_info[4]..$mRNA_info[5] ($mRNA_info[2] strand)\n".$genomicSequence."\n";
+	        print TRANSCRIPT ">$mRNA transcript ".length($transcriptSequence)."bp $mRNA_info[0]:$mRNA_info[4]..$mRNA_info[5] ($mRNA_info[2] strand)\n".$transcriptSequence."\n";
+	        print CDS ">$mRNA CDS ".length($codingSequence)."bp $mRNA_info[0]:$mRNA_info[4]..$mRNA_info[5] ($mRNA_info[2] strand)\n".$codingSequence."\n";
+	        print PROTEIN ">$mRNA peptide ".length($proteinSequence)."aa $mRNA_info[0]:$mRNA_info[4]..$mRNA_info[5] ($mRNA_info[2] strand)\n".$proteinSequence."\n";
+
+        #sequence doesn't found on index
+        } else {
+
+        	print ERRORS "Sequence for $mRNA_info[0] not found in fasta file for mRNA $mRNA\n";
+
+        } #end else
+
+} #end printing mRNAs
+
+exit;
+
+
+
+
+
+

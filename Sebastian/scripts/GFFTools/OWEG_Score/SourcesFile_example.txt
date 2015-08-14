@@ -1,0 +1,16 @@
+#Source	Type	Category
+#Please use the following categories: Predictors, GeneModels, Transcriptome, HomologyGenes, Transposons, Repeats
+snap_masked	match_part	Predictors
+GLEAN	CDS	GeneModels
+maker	CDS	GeneModels
+est2genome	match_part	Transcriptome
+protein2genome	match_part	HomologyProtein
+#
+#
+# Description of categories
+# Predictors = data from ab initio gene predictors
+# GeneModels = gene model data
+# Transcriptome = data derived from transcriptomic data of the same or close related species
+# HomologyGenes = data derived from transcriptomic or proteomic data from not related species
+# Transposons = transposable elements
+# Repeats = non-transposon repeat elements

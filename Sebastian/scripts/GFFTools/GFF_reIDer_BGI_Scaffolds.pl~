@@ -1,0 +1,79 @@
+#!/usr/bin/perl
+
+###################################################
+#
+#
+#	GFF3 ID/Name/Parent Changer
+#
+#
+#
+###################################################
+
+#
+
+if (@ARGV < 1) {
+
+	print "Two are arguments are needed, please inpu them.\n";
+	print "GFF File were to change the ID (ID is the first of the features).\n";
+        print "Translation Table with sequence size to change.\n\n";
+	print "perl Fasta_renamer.pl <GFFFile> <translationTable>\n";
+        exit 0;
+
+} #end if
+
+my %loci = ();
+
+open(TRANSLATIONTABLE, $ARGV[1]);
+
+while($codeTranslation = <TRANSLATIONTABLE>) {
+
+	chop($codeTranslation);
+
+        @data = split("\t", $codeTranslation);
+
+        $loci{$data[0]} = $data[1];
+
+} #end while
+
+open(GFF, $ARGV[0]);
+open(RESULTS, ">$ARGV[0].rename.gff");
+
+while ($line = <GFF>) {
+
+	chop($line);
+
+        @GFF_line = split (" ", $line);
+
+	@features = split (";", $GFF_line[8]);
+
+	print RESULTS $GFF_line[0], "\t", $GFF_line[1], "\t", $GFF_line[2], "\t", $GFF_line[3], "\t", $GFF_line[4], "\t", $GFF_line[5], "\t", $GFF_line[6], "\t", $GFF_line[7], "\t";
+
+
+	foreach $feature (@features) {
+
+		@value = split("=", $feature);
+
+	        if($value[0] eq "ID") {
+			print RESULTS $value[0], "=", $loci{$value[1]},";";
+
+	        } elsif ($value[0] eq "Name") {
+			print RESULTS $value[0], "=", $loci{$value[1]},";";
+
+	        } elsif ($value[0] eq "Parent") {
+			print RESULTS $value[0], "=", $loci{$value[1]},";";
+
+	        } else {
+			print RESULTS $feature,";";
+
+	        } #end else
+
+	} #end foreach
+
+	print RESULTS "\n";
+
+} #end while
+
+close(GFF);
+close(RESULTS);
+
+exit;
